@@ -8,9 +8,9 @@ char g_Prefix[32] = "{green}KZ {grey}| ";
 
 public Plugin myinfo =
 {
-	name = "Global PB",
+	name = "GlobalPB",
 	author = "Szwagi",
-	version = "1.0.0"
+	version = "v1.0.0"
 };
 
 public void OnPluginStart()
