@@ -1,10 +1,14 @@
 #include <sourcemod>
 #include <smjansson>
-#include <gokz/core>
 #include <sourcemod-colors>
 #include <globalpb>
 
+#undef REQUIRE_PLUGIN
+#include <gokz/core> // We might also run this on kztimer, or without anything at all.
+#define REQUIRE_PLUGIN
+
 char g_Prefix[32] = "{green}KZ {grey}| ";
+bool g_UsesGokz = false;
 
 public Plugin myinfo =
 {
@@ -23,10 +27,28 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
+	g_UsesGokz = LibraryExists("gokz-core");
+
 	ConVar cvPrefix = FindConVar("gokz_chat_prefix");
 	if (cvPrefix != null)
 	{
 		cvPrefix.GetString(g_Prefix, sizeof(g_Prefix));
+	}
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (StrEqual(name, "gokz-core"))
+	{
+		g_UsesGokz = false;
+	}
+}
+
+public void OnLibraryAdded(const char[] name)
+{
+	if (StrEqual(name, "gokz-core"))
+	{
+		g_UsesGokz = true;
 	}
 }
 
@@ -85,7 +107,13 @@ Action Command_GlobalBonusPB(int client, int argc)
 void StartRequestGlobalPB(int client, const char[] map, int course)
 {
 	int userid = GetClientUserId(client);
-	int mode = GOKZ_GetCoreOption(client, Option_Mode);
+	int mode = 2; // Default to KZTimer
+
+	if (g_UsesGokz)
+	{
+		mode = GOKZ_GetCoreOption(client, Option_Mode);
+	}
+
 	if (mode >= sizeof(gC_APIModes))
 	{
 		return;
