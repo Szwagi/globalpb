@@ -14,7 +14,7 @@ public Plugin myinfo =
 {
 	name = "GlobalPB",
 	author = "Szwagi",
-	version = "v1.0.0"
+	version = "v1.1.0"
 };
 
 public void OnPluginStart()
