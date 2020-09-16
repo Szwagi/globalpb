@@ -9,6 +9,7 @@
 
 char g_Prefix[32] = "{green}KZ {grey}| ";
 bool g_UsesGokz = false;
+float g_TimeoutExpireTime[MAXPLAYERS + 1];
 
 public Plugin myinfo =
 {
@@ -34,6 +35,11 @@ public void OnAllPluginsLoaded()
 	{
 		cvPrefix.GetString(g_Prefix, sizeof(g_Prefix));
 	}
+}
+
+public void OnClientConnected(int client)
+{
+	g_TimeoutExpireTime[client] = 0.0;
 }
 
 public void OnLibraryRemoved(const char[] name)
@@ -118,6 +124,14 @@ void StartRequestGlobalPB(int client, const char[] map, int course)
 	{
 		return;
 	}
+
+	if (g_TimeoutExpireTime[client] > GetEngineTime())
+	{
+		float timeoutLeft = g_TimeoutExpireTime[client] - GetEngineTime(); 
+		CPrintToChat(client, "%s{grey}Please wait %0.1f seconds before using that command.", g_Prefix, timeoutLeft + 0.1);
+		return;
+	}
+	g_TimeoutExpireTime[client] = GetEngineTime() + 4.0;
 
 	DataPack data1 = new DataPack();
 	data1.WriteCell(userid);
