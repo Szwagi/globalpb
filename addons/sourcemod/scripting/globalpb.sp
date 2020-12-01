@@ -20,6 +20,8 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
+	LoadTranslations("common.phrases.txt");
+
 	RegConsoleCmd("sm_gpb", Command_GlobalPB);
 	RegConsoleCmd("sm_globalpb", Command_GlobalPB);
 	RegConsoleCmd("sm_gbpb", Command_GlobalBonusPB);
@@ -61,13 +63,15 @@ public void OnLibraryAdded(const char[] name)
 Action Command_GlobalPB(int client, int argc)
 {
 	char map[128];
-	if (argc == 0)
+	char playerName[MAX_NAME_LENGTH];
+
+	if (argc == 0) // Print calling player's PB for current map
 	{
 		GetCurrentMap(map, sizeof(map));
 		GetMapDisplayName(map, map, sizeof(map));
-		StartRequestGlobalPB(client, map, 0);
+		StartRequestGlobalPB(client, client, map, 0);
 	}
-	else
+	else if (argc == 1) // Print calling player's PB for specified map
 	{
 		GetCmdArgString(map, sizeof(map));
 		if (FindMap(map, map, sizeof(map)) == FindMap_NotFound)
@@ -77,9 +81,29 @@ Action Command_GlobalPB(int client, int argc)
 		else
 		{
 			GetMapDisplayName(map, map, sizeof(map));
-			StartRequestGlobalPB(client, map, 0);
+			StartRequestGlobalPB(client, client, map, 0);
 		}
 	}
+	else if (argc == 2) // Print PB for specific map, for specified player
+	{
+		GetCmdArg(1, map, sizeof(map));
+		if (FindMap(map, map, sizeof(map)) == FindMap_NotFound)
+		{
+			CPrintToChat(client, "%s{grey}Your search for map '{default}%s{grey}' returned no results.", g_Prefix, map);
+			return Plugin_Handled;
+		}
+
+		GetCmdArg(2, playerName, sizeof(playerName));
+
+		int target = FindTarget(client, playerName, true, false);
+		if (target == -1)
+		{
+			return Plugin_Handled;
+		}
+
+		StartRequestGlobalPB(client, target, map, 0);
+	}
+
 	return Plugin_Handled;
 }
 
@@ -91,7 +115,7 @@ Action Command_GlobalBonusPB(int client, int argc)
 
 	if (argc == 0)
 	{
-		StartRequestGlobalPB(client, map, 1);
+		StartRequestGlobalPB(client, client, map, 1);
 	}
 	else
 	{
@@ -105,14 +129,15 @@ Action Command_GlobalBonusPB(int client, int argc)
 		}
 		else
 		{
-			StartRequestGlobalPB(client, map, course);
+			StartRequestGlobalPB(client, client, map, course);
 		}
 	}
 }
 
-void StartRequestGlobalPB(int client, const char[] map, int course)
+void StartRequestGlobalPB(int client, int target, const char[] map, int course)
 {
 	int userid = GetClientUserId(client);
+	int targetUserid = GetClientUserId(target);
 	int mode = 2; // Default to KZTimer
 
 	if (g_UsesGokz)
@@ -135,11 +160,12 @@ void StartRequestGlobalPB(int client, const char[] map, int course)
 
 	DataPack data1 = new DataPack();
 	data1.WriteCell(userid);
+	data1.WriteCell(targetUserid);
 	data1.WriteCell(mode);
 	data1.WriteCell(course);
 	data1.WriteString(map);
 
-	RequestGlobalPB(client, map, course, mode, true, HTTPRequestCompleted_Stage1, data1);
+	RequestGlobalPB(target, map, course, mode, true, HTTPRequestCompleted_Stage1, data1);
 }
 
 void HTTPRequestCompleted_Stage1(Handle request, bool failure, bool requestSuccess, EHTTPStatusCode status, DataPack data1)
@@ -162,6 +188,7 @@ void HTTPRequestCompleted_Stage1(Handle request, bool failure, bool requestSucce
 
 	data1.Reset();
 	int userid = data1.ReadCell();
+	int targetUserid = data1.ReadCell();
 	int mode = data1.ReadCell();
 	int course = data1.ReadCell();
 
@@ -169,7 +196,8 @@ void HTTPRequestCompleted_Stage1(Handle request, bool failure, bool requestSucce
 	data1.ReadString(map, sizeof(map));
 
 	int client = GetClientOfUserId(userid);
-	if (client == 0)
+	int target = GetClientOfUserId(targetUserid);
+	if (client == 0 || target == 0)
 	{
 		delete request;
 		delete data1;
@@ -180,7 +208,7 @@ void HTTPRequestCompleted_Stage1(Handle request, bool failure, bool requestSucce
 	data2.WriteFloat(time);
 	data2.WriteCell(teleports);
 
-	RequestGlobalPB(client, map, course, mode, false, HTTPRequestCompleted_Stage2, data1, data2);
+	RequestGlobalPB(target, map, course, mode, false, HTTPRequestCompleted_Stage2, data1, data2);
 	
 	delete request;
 }
@@ -189,6 +217,7 @@ void HTTPRequestCompleted_Stage2(Handle request, bool failure, bool requestSucce
 {
 	data1.Reset();
 	int userid = data1.ReadCell();
+	int targetUserid = data1.ReadCell();
 	int mode = data1.ReadCell();
 	int course = data1.ReadCell();
 
@@ -213,28 +242,36 @@ void HTTPRequestCompleted_Stage2(Handle request, bool failure, bool requestSucce
 	delete request;
 
 	int client = GetClientOfUserId(userid);
-	if (client == 0)
+	int target = GetClientOfUserId(targetUserid);
+	if (client == 0 || target == 0)
 	{
 		return;
 	}
 
-	PrintPbToChat(client, map, course, mode, tpTime, tpTeleports, proTime);
+	PrintPbToChat(client, target, map, course, mode, tpTime, tpTeleports, proTime);
 }
 
-void PrintPbToChat(int client, const char[] map, int course, int mode, float tpTime, int tpTeleports, float proTime)
+void PrintPbToChat(int client, int target, const char[] map, int course, int mode, float tpTime, int tpTeleports, float proTime)
 {
 	if (course == 0)
 	{
-		CPrintToChat(client, "%s{lime}%N {grey}on {default}%s {grey}[{purple}%s{grey}]", g_Prefix, client, map, gC_ModeShort[mode]);
+		CPrintToChat(client, "%s{lime}%N {grey}on {default}%s {grey}[{purple}%s{grey}]", g_Prefix, target, map, gC_ModeShort[mode]);
 	}
 	else
 	{
-		CPrintToChat(client, "%s{lime}%N {grey}on {default}%s {grey2}Bonus %d {grey}[{purple}%s{grey}]", g_Prefix, client, map, course, gC_ModeShort[mode]);
+		CPrintToChat(client, "%s{lime}%N {grey}on {default}%s {grey2}Bonus %d {grey}[{purple}%s{grey}]", g_Prefix, target, map, course, gC_ModeShort[mode]);
 	}
 
 	if (tpTime <= 0.0 && proTime <= 0.0)
 	{
-		CPrintToChat(client, "{grey}You haven't set a time... yet.");
+		if (client == target)
+		{
+			CPrintToChat(client, "{grey}You haven't set a time... yet.");
+		}
+		else
+		{
+			CPrintToChat(client, "{lime}%N {grey}hasn't set a time... yet.", target);
+		}
 	}
 	else if ((tpTime > 0.0 && proTime > 0.0 && tpTime > proTime) || (tpTime <= 0.0 && proTime > 0.0))
 	{
