@@ -1,21 +1,23 @@
-//-----------------------------------------------------------
-//--------Usage intended for KZTimer only, not GOKZ----------
-//-----------------------------------------------------------
-
 #include <sourcemod>
 #include <smjansson>
+#include <sourcemod-colors>
 #include <globalpb>
 
-float g_TimeoutExpireTime[MAXPLAYERS+1];
-char g_cPrefix[32] = "\x01[\x05KZ\x01] \x08";
+#undef REQUIRE_PLUGIN
+#include <kztimer>
+#include <gokz/core>
+#define REQUIRE_PLUGIN
 
-char g_cJumptypes[7][16] = {"Longjump", "Bhop", "MultiBhop", "Werirdjump", "DropBhop", "Countjump", "Ladderjump"};
+int g_iTargetJS[MAXPLAYERS+1];
+float g_TimeoutExpireTime[MAXPLAYERS+1];
+char g_cPrefix[64] = "{default}[{lime}KZ{default}] {grey}";
+bool g_UsesGokz = false;
 
 public Plugin myinfo =
 {
 	name = "GlobalPB",
 	author = "Szwagi, Dave",
-	version = "v1.2.0"
+	version = "v1.3.0"
 };
 
 public void OnPluginStart()
@@ -29,6 +31,33 @@ public void OnPluginStart()
 
 	RegConsoleCmd("sm_gjs", Command_GlobalJS);
 	RegConsoleCmd("sm_globaljumpstats", Command_GlobalJS);
+}
+
+public void OnAllPluginsLoaded()
+{
+	g_UsesGokz = LibraryExists("gokz-core");
+
+	ConVar cvPrefix = FindConVar("gokz_chat_prefix");
+	if (cvPrefix != null)
+	{
+		cvPrefix.GetString(g_cPrefix, sizeof(g_cPrefix));
+	}
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (StrEqual(name, "gokz-core"))
+	{
+		g_UsesGokz = false;
+	}
+}
+
+public void OnLibraryAdded(const char[] name)
+{
+	if (StrEqual(name, "gokz-core"))
+	{
+		g_UsesGokz = true;
+	}
 }
 
 public void OnClientConnected(int client)
@@ -52,7 +81,7 @@ Action Command_GlobalPB(int client, int argc)
 		GetCmdArgString(map, sizeof(map));
 		if (FindMap(map, map, sizeof(map)) == FindMap_NotFound)
 		{
-			PrintToChat(client, "%sYour search for map '\x01%s\x08' returned no results.", g_cPrefix, map);
+			CPrintToChat(client, "%sYour search for map '{default}%s{grey}' returned no results.", g_cPrefix, map);
 		}
 		else
 		{
@@ -65,7 +94,7 @@ Action Command_GlobalPB(int client, int argc)
 		GetCmdArg(1, map, sizeof(map));
 		if (FindMap(map, map, sizeof(map)) == FindMap_NotFound)
 		{
-			PrintToChat(client, "%sYour search for map '\x01%s\x08' returned no results.", g_cPrefix, map);
+			CPrintToChat(client, "%sYour search for map '{default}%s{grey}' returned no results.", g_cPrefix, map);
 			return Plugin_Handled;
 		}
 
@@ -101,7 +130,7 @@ Action Command_GlobalBonusPB(int client, int argc)
 		int course = StringToInt(args);
 		if (course <= 0)
 		{
-			PrintToChat(client, "%s'\x01%s\x08' is not a valid bonus number.", g_cPrefix, args);
+			CPrintToChat(client, "%s'{default}%s{grey}' is not a valid bonus number.", g_cPrefix, args);
 		}
 		else
 		{
@@ -116,10 +145,21 @@ void StartRequestGlobalPB(int client, int target, const char[] map, int course)
 	int targetUserid = GetClientUserId(target);
 	int mode = 2; // Default to KZTimer
 
+	/*if (g_UsesGokz)
+	{
+		mode = GOKZ_GetCoreOption(client, Option_Mode);
+	}*/
+
+	if (mode >= sizeof(gC_APIModes))
+	{
+		return;
+	}
+
+
 	if (g_TimeoutExpireTime[client] > GetEngineTime())
 	{
 		float timeoutLeft = g_TimeoutExpireTime[client] - GetEngineTime(); 
-		PrintToChat(client, "%sPlease wait %0.1f seconds before using that command.", g_cPrefix, timeoutLeft + 0.1);
+		CPrintToChat(client, "%sPlease wait %0.1f seconds before using that command.", g_cPrefix, timeoutLeft + 0.1);
 		return;
 	}
 	g_TimeoutExpireTime[client] = GetEngineTime() + 4.0;
@@ -221,22 +261,22 @@ void PrintPbToChat(int client, int target, const char[] map, int course, int mod
 {
 	if (course == 0)
 	{
-		PrintToChat(client, "%s\x05%N \x08on \x01%s \x08[\x03%s\x08]", g_cPrefix, target, map, gC_ModeShort[mode]);
+		CPrintToChat(client, "%s{lime}%N {grey}on {default}%s {grey}[{purple}%s{grey}]", g_cPrefix, target, map, gC_ModeShort[mode]);
 	}
 	else
 	{
-		PrintToChat(client, "%s\x05%N \x08on \x01%s \x0DBonus %d \x08[\x03%s\x08]", g_cPrefix, target, map, course, gC_ModeShort[mode]);
+		CPrintToChat(client, "%s{lime}%N {grey}on {default}%s {grey2}Bonus %d {grey}[{purple}%s{grey}]", g_cPrefix, target, map, course, gC_ModeShort[mode]);
 	}
 
 	if (tpTime <= 0.0 && proTime <= 0.0)
 	{
 		if (client == target)
 		{
-			PrintToChat(client, "%sYou haven't set a time... yet.", g_cPrefix);
+			CPrintToChat(client, "%sYou haven't set a time... yet.", g_cPrefix);
 		}
 		else
 		{
-			PrintToChat(client, "%s\x05%N \x08hasn't set a time... yet.", g_cPrefix, target);
+			CPrintToChat(client, "%s{lime}%N {grey}hasn't set a time... yet.", g_cPrefix, target);
 		}
 	}
 	else if ((tpTime > 0.0 && proTime > 0.0 && tpTime > proTime) || (tpTime <= 0.0 && proTime > 0.0))
@@ -244,7 +284,7 @@ void PrintPbToChat(int client, int target, const char[] map, int course, int mod
 		char timeFmt[32];
 		FormatDuration(timeFmt, sizeof(timeFmt), proTime);
 
-		PrintToChat(client, "%s\x09TP\x08/\x0BPRO PB\x08: \x01%s", g_cPrefix, timeFmt);
+		CPrintToChat(client, "%s{yellow}TP{grey}/{blue}PRO PB{grey}: {default}%s", g_cPrefix, timeFmt);
 	}
 	else
 	{
@@ -253,11 +293,11 @@ void PrintPbToChat(int client, int target, const char[] map, int course, int mod
 			char timeFmt[32];
 			FormatDuration(timeFmt, sizeof(timeFmt), tpTime);
 
-			PrintToChat(client, "%s\x09TP PB\x08: \x01%s \x08(\x09%d\x08)", g_cPrefix, timeFmt, tpTeleports);
+			CPrintToChat(client, "%s{yellow}TP PB{grey}: {default}%s {grey}({yellow}%d{grey})", g_cPrefix, timeFmt, tpTeleports);
 		}
 		else
 		{
-			PrintToChat(client, "%s\x09TP PB\x08: None... yet.", g_cPrefix);
+			CPrintToChat(client, "%s{yellow}TP PB{grey}: None... yet.", g_cPrefix);
 		}
 
 		if (proTime > 0.0)
@@ -265,36 +305,36 @@ void PrintPbToChat(int client, int target, const char[] map, int course, int mod
 			char timeFmt[32];
 			FormatDuration(timeFmt, sizeof(timeFmt), proTime);
 
-			PrintToChat(client, "%s\x0BPRO PB\x08: \x01%s", g_cPrefix, timeFmt);
+			CPrintToChat(client, "%s{blue}PRO PB{grey}: {default}%s", g_cPrefix, timeFmt);
 		}
 		else
 		{
-			PrintToChat(client, "%s\x0BPRO PB\x08: None... yet.", g_cPrefix);
+			CPrintToChat(client, "%s{blue}PRO PB{grey}: None... yet.", g_cPrefix);
 		}
 	}
 }
 
 Action Command_GlobalJS(int client, int args)
 {
-    char jumptype[36];
-
-    if(!GetCmdArg(1, jumptype, sizeof(jumptype)))
-    {
-        jsMenu(client, 0);
+	if(g_UsesGokz)
 		return Plugin_Handled;
+
+	int target;
+    char bufferTarget[32];
+	if(args > 0)
+	{
+		if(GetCmdArg(1, bufferTarget, sizeof(bufferTarget)))
+		{
+			target = FindTarget(client, bufferTarget, true);
+		}
+	} else 
+	{
+		target = client;
 	}
 	
-	for(int i = 0; i < 7; i++)
-	{
-		if(StrEqual(jumptype, g_cJumptypes[i], false))
-		{
-			jumptype = g_cJumptypes[i];
-			PrintToChat(client, "%sLoading stat...", g_cPrefix);
-			StartRequestStatPb(client, client, jumptype);
-			return Plugin_Handled;
-		}
-	}
-	PrintToChat(client, "%s\x07Invalid or too many arguments.", g_cPrefix);
+	g_iTargetJS[client] = target;
+
+	jsMenu(client, 0);
 	return Plugin_Handled;
 }
 
@@ -302,14 +342,11 @@ public Action jsMenu(int client, int args)
 {
     Menu menu = new Menu(jsMenuHandler);
     SetMenuPagination(menu, MENU_NO_PAGINATION);
-    menu.SetTitle("Your Global Jumpstats:");
-    menu.AddItem("Longjump", "Longjump");
-    menu.AddItem("Bhop", "Bhop");
-    menu.AddItem("MultiBhop", "MultiBhop");
-    menu.AddItem("Weirdjump", "Weirdjump");
-    menu.AddItem("DropBhop", "DropBhop");
-    menu.AddItem("Countjump", "Countjump");
-    menu.AddItem("Ladderjump", "Ladderjump");
+
+	for(int i = 0; i < 7; i++)
+	{
+		menu.AddItem(gC_JumpTypes[i], gC_JumpTypes[i]);
+	}
     
     menu.ExitButton = true;
     menu.Display(client, MENU_TIME_FOREVER);
@@ -319,16 +356,18 @@ public Action jsMenu(int client, int args)
 
 public int jsMenuHandler(Menu menu, MenuAction action, int client, int option)
 {
+	int target = g_iTargetJS[client];
+
     if(action == MenuAction_Select)
     {
         char jumpType[16];
         menu.GetItem(option, jumpType, sizeof(jumpType));
-        PrintToChat(client, "%sLoading stat...", g_cPrefix);
+        CPrintToChat(client, "%sLoading stat...", g_cPrefix);
         if(g_TimeoutExpireTime[client] > GetEngineTime())
         {
             jsMenu(client, 0);
         }
-        StartRequestStatPb(client, client, jumpType); 
+        StartRequestStatPb(client, target, jumpType); 
     } else if(action == MenuAction_End)
     {
         delete menu;
@@ -343,7 +382,7 @@ public void StartRequestStatPb(int client, int target, const char[] jumpType)
     if(g_TimeoutExpireTime[client] > GetEngineTime())
     {
         float timeoutLeft = g_TimeoutExpireTime[client] - GetEngineTime();
-        PrintToChat(client, "%sTimeout, wait %0.1f seconds", g_cPrefix, timeoutLeft + 0.1);
+        CPrintToChat(client, "%sTimeout, wait %0.1f seconds", g_cPrefix, timeoutLeft + 0.1);
         return;
     }
 
@@ -447,7 +486,7 @@ public Action jsMenuInfo(int client, int target, const char[] jumptype, float di
 {
     if(!distance)
     {
-        PrintToChat(client, "%sYou have no registered jumps of this type!", g_cPrefix);
+        CPrintToChat(client, "%sYou have no registered jumps of this type!", g_cPrefix);
 		jsMenu(client, 0);
         return Plugin_Handled;
     }
@@ -457,10 +496,13 @@ public Action jsMenuInfo(int client, int target, const char[] jumptype, float di
 
     char czTitle[128], czBody[256];
 
+	if(!g_UsesGokz)
+		KZTimer_StopUpdatingOfClimbersMenu(client);
+
     Menu menu = new Menu(jsMenuInfoHandler);
 	ReplaceString(cDate, 64, "T", " ");
-    FormatEx(czTitle, sizeof(czTitle), "Your Best Global %s:\n", jumptype);
-	FormatEx(czBody, sizeof(czBody), "Player: %N\n - SteamID: %s\n - Distance: %f\n - Strafes: %d\n - Binded: %s \n - Date: %s", client, steamid, distance, strafe_count, isBinded == 1 ? "true" : "false", cDate);
+    FormatEx(czTitle, sizeof(czTitle), "Global Personal Best %s:\n", jumptype);
+	FormatEx(czBody, sizeof(czBody), "Player: %N\n - SteamID: %s\n - Distance: %f\n - Strafes: %d\n - Binded: %s \n - Date: %s", target, steamid, distance, strafe_count, isBinded == 1 ? "true" : "false", cDate);
     menu.SetTitle(czTitle);
 	menu.AddItem("body", czBody, ITEMDRAW_DISABLED);
 
