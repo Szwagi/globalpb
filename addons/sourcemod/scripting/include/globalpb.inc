@@ -14,6 +14,17 @@ stock const char gC_ModeShort[3][] =
 	"KZT"
 };
 
+stock const char gC_JumpTypes[7][] = 
+{
+	"LongJump", 
+	"Bhop", 
+	"MultiBhop", 
+	"WeirdJump", 
+	"DropBhop", 
+	"CountJump", 
+	"LadderJump"
+};
+
 stock bool RequestGlobalPB(int client, const char[] map, int course, int mode, bool teleports, SteamWorksHTTPRequestCompleted callback, any data1 = 0, any data2 = 0)
 {
 	char steamid[64];
