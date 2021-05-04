@@ -12,4 +12,4 @@ SourceMod plugin that lets GOKZ or KZTimer players request their personal best t
 - SteamWorks
 
 ### Forks
-- [Dave Fork](https://github.com/DevDaveid/globalpb) - Adds global jumpstats command.
+- [Dave's Fork](https://github.com/DevDaveid/globalpb) - Adds global jumpstats command.
