@@ -1,6 +1,6 @@
 #include <sourcemod>
 #include <smjansson>
-#include <sourcemod-colors>
+#include <colors>
 #include <globalpb>
 
 #undef REQUIRE_PLUGIN
