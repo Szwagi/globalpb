@@ -14,6 +14,17 @@ stock const char gC_ModeShort[3][] =
 	"KZT"
 };
 
+stock const char gC_JumpTypes[7][] = 
+{
+	"LongJump", 
+	"Bhop", 
+	"MultiBhop", 
+	"WeirdJump", 
+	"DropBhop", 
+	"CountJump", 
+	"LadderJump"
+};
+
 stock bool RequestGlobalPB(int client, const char[] map, int course, int mode, bool teleports, SteamWorksHTTPRequestCompleted callback, any data1 = 0, any data2 = 0)
 {
 	char steamid[64];
@@ -106,4 +117,71 @@ stock int FormatDuration(char[] buffer, int maxlength, float duration)
         return Format(buffer, maxlength, "%02d:%02d.%02d", minutes, seconds, milliseconds);
 
     return Format(buffer, maxlength, "%02d.%02d", seconds, milliseconds);
+}
+
+stock bool RequestGlobalJS(int client, const char[] jumpType, SteamWorksHTTPRequestCompleted callback, any data1 = 0, any data2 = 0)
+{
+    char steamid[64], link[512];
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
+
+    Format(link, sizeof(link), "https://kztimerglobal.com/api/v1.0/jumpstats/%s/top?steam_id=%s", jumpType, steamid);
+    Handle request = SteamWorks_CreateHTTPRequest(k_EHTTPMethodGET, link);
+
+    if(request != null)
+    {
+        SteamWorks_SetHTTPRequestContextValue(request, data1, data2);
+        if(!SteamWorks_SetHTTPCallbacks(request, callback) || !SteamWorks_SendHTTPRequest(request))
+        {
+            delete request;
+            return false;
+        }
+    }
+    return true;
+}
+
+stock bool GetRequestGlobalJSInfo(Handle request, float& distance, int& strafe_count, int& isBinded, char[] cDate)
+{
+    distance = 0.0;
+    strafe_count = 0;
+    isBinded = 0;
+
+    char buffer[2048];
+    if (!SteamWorks_GetHTTPResponseBody_Easy(request, buffer, sizeof(buffer)))
+    {
+        return false;
+    }
+
+    Handle json = json_load(buffer);
+    if(json == null)
+    {
+        return false;
+    }
+
+    Handle obj = json_array_get(json, 0);
+    if(obj == null)
+    {
+        delete json;
+        return true;
+    }
+
+    Handle objDistance = json_object_get(obj, "distance");
+    Handle objStrafes = json_object_get(obj, "strafe_count");
+	Handle objBinded = json_object_get(obj, "is_crouch_boost");
+	Handle objDate = json_object_get(obj, "created_on");
+	
+	if(objDistance != null && objStrafes != null)
+    {
+        distance = json_real_value(objDistance);
+        strafe_count = json_integer_value(objStrafes);
+        isBinded = json_integer_value(objBinded);
+		json_string_value(objDate, cDate, 64);
+    }
+
+	delete objDistance;
+    delete objStrafes;
+    delete objBinded;
+	delete objDate;
+	delete obj;
+	delete json;
+    return true;
 }
