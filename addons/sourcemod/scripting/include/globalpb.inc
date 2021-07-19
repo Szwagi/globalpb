@@ -1,4 +1,4 @@
-#include <steamworks>
+#include <SteamWorks>
 
 stock const char gC_APIModes[3][] =
 {
