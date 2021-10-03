@@ -32,7 +32,7 @@ stock bool RequestGlobalPB(int client, const char[] map, int course, int mode, b
 
 	char link[512];
 	Format(link, sizeof(link), 
-		"http://kztimerglobal.com/api/v1.0/records/top?steam_id=%s&map_name=%s&stage=%d&modes_list_string=%s&has_teleports=%s&limit=1&tickrate=128", 
+		"https://kztimerglobal.com/api/v1.0/records/top?steam_id=%s&map_name=%s&stage=%d&modes_list_string=%s&has_teleports=%s&limit=1&tickrate=128", 
 		steamid, map, course, gC_APIModes[mode], teleports ? "true" : "false");
 
 	Handle request = SteamWorks_CreateHTTPRequest(k_EHTTPMethodGET, link);
